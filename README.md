@@ -78,6 +78,14 @@ npm run preview
 
 ![Kontrol paneli](docs/screenshot-dashboard.png)
 
-### Yeni oda ekleme
+### Oda kartları
 
-![Yeni oda ekleme](docs/screenshot-add-room.png)
+![Oda kartları](docs/screenshot-room-cards.png)
+
+### Model analizi sonucu
+
+![Model analizi sonucu](docs/screenshot-add-room.png)
+
+### Kamera kaydını düzenleme
+
+![Kamera kaydını düzenleme](docs/screenshot-edit-room.png)
