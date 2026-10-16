@@ -4,11 +4,13 @@ import { CLEAN_KITCHEN_IMAGE, CLEAN_OFFICE_IMAGE, getPriorityFromScore, MESSY_BE
 
 const initialValues = { name: '', cameraName: '', area: '', imageUrl: '' }
 const cameraPresets = [
-  { label: 'Kamera 1: Dağınık Salon', name: 'Salon - CAM 01', cameraName: 'CAM-01 [Geniş Açı]', area: '1. Kat', imageUrl: MESSY_LIVING_ROOM_IMAGE },
-  { label: 'Kamera 2: Dağınık Yatak Odası', name: 'Yatak Odası - CAM 02', cameraName: 'CAM-02 [Geniş Açı]', area: '2. Kat', imageUrl: MESSY_BEDROOM_IMAGE },
-  { label: 'Kamera 3: Temiz Mutfak', name: 'Mutfak - CAM 03', cameraName: 'CAM-03 [Tezgâh Görüşü]', area: '1. Kat', imageUrl: CLEAN_KITCHEN_IMAGE },
-  { label: 'Kamera 4: Temiz Çalışma Odası', name: 'Çalışma Odası - CAM 04', cameraName: 'CAM-04 [Masa Üstü]', area: '2. Kat', imageUrl: CLEAN_OFFICE_IMAGE },
+  { label: 'Kamera 1: Dağınık Salon', name: 'Salon - CAM 01', cameraName: 'CAM-01 [Geniş Açı]', area: '1. Kat', imageUrl: MESSY_LIVING_ROOM_IMAGE, expected: { status: 'Messy', minScore: 80, maxScore: 95 } },
+  { label: 'Kamera 2: Dağınık Yatak Odası', name: 'Yatak Odası - CAM 02', cameraName: 'CAM-02 [Geniş Açı]', area: '2. Kat', imageUrl: MESSY_BEDROOM_IMAGE, expected: { status: 'Messy', minScore: 80, maxScore: 95 } },
+  { label: 'Kamera 3: Temiz Mutfak', name: 'Mutfak - CAM 03', cameraName: 'CAM-03 [Tezgâh Görüşü]', area: '1. Kat', imageUrl: CLEAN_KITCHEN_IMAGE, expected: { status: 'Clean', minScore: 5, maxScore: 25 } },
+  { label: 'Kamera 4: Temiz Çalışma Odası', name: 'Çalışma Odası - CAM 04', cameraName: 'CAM-04 [Masa Üstü]', area: '2. Kat', imageUrl: CLEAN_OFFICE_IMAGE, expected: { status: 'Clean', minScore: 5, maxScore: 25 } },
 ]
+const MESSY_THRESHOLD = 50
+const MAX_IMAGE_WIDTH = 800
 
 export default function AddRoomModal({ room, onClose, onSubmit }) {
   const [values, setValues] = useState(room ? { ...room } : initialValues)
@@ -17,15 +19,18 @@ export default function AddRoomModal({ room, onClose, onSubmit }) {
   const [error, setError] = useState('')
 
   const update = (field, value) => setValues((current) => ({ ...current, [field]: value }))
-  const selectPreset = (preset) => {
-    setValues(preset)
+  const selectPreset = ({ name, cameraName, area, imageUrl }) => {
+    setValues((current) => ({ ...current, name, cameraName, area, imageUrl }))
     setAnalysis(null)
     setError('')
   }
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0]
-    if (file) update('imageUrl', URL.createObjectURL(file))
+    if (!file) return
+    resizeImageFile(file)
+      .then((dataUrl) => { update('imageUrl', dataUrl); setError('') })
+      .catch(() => setError('Görsel okunamadı. Lütfen farklı bir dosya deneyin.'))
   }
 
   const analyze = () => {
@@ -37,13 +42,16 @@ export default function AddRoomModal({ room, onClose, onSubmit }) {
     setIsAnalyzing(true)
     setAnalysis(null)
     window.setTimeout(() => {
-      const clutterScore = values.name.toLocaleLowerCase('tr-TR').includes('salon') ? 18.6 : Math.round((45 + Math.random() * 50) * 10) / 10
+      const preset = cameraPresets.find((item) => item.imageUrl === values.imageUrl)
+      const clutterScore = preset ? randomScore(preset.expected.minScore, preset.expected.maxScore) : randomScore(0, 100)
+      const status = preset ? preset.expected.status : clutterScore >= MESSY_THRESHOLD ? 'Messy' : 'Clean'
       const result = {
-        status: clutterScore >= 40 ? 'Messy' : 'Clean',
+        status,
         clutterScore,
-        aiConfidence: Math.round((96 + Math.random() * 3) * 10) / 10,
+        aiConfidence: Math.max(clutterScore, Math.round((100 - clutterScore) * 10) / 10),
         priority: getPriorityFromScore(clutterScore),
-        actionList: clutterScore >= 40 ? ['1. Yerdeki eşyaları toparlayın.', '2. Yüzeylerdeki dağınıklığı azaltın.', '3. Kullanılmayan eşyaları yerlerine kaldırın.'] : ['1. Mevcut düzeni koruyun.', '2. Yüzeyleri düzenli aralıklarla kontrol edin.'],
+        isSimulated: !preset,
+        actionList: status === 'Messy' ? ['1. Yerdeki eşyaları toparlayın.', '2. Yüzeylerdeki dağınıklığı azaltın.', '3. Kullanılmayan eşyaları yerlerine kaldırın.'] : ['1. Mevcut düzeni koruyun.', '2. Yüzeyleri düzenli aralıklarla kontrol edin.'],
       }
       setAnalysis(result)
       setIsAnalyzing(false)
@@ -56,7 +64,8 @@ export default function AddRoomModal({ room, onClose, onSubmit }) {
       setError('Önce MobileNetV2 analizini başlatıp sonucu onaylayın.')
       return
     }
-    onSubmit({ ...values, ...analysis })
+    const { isSimulated, ...analysisResult } = analysis
+    onSubmit({ ...values, ...analysisResult })
   }
 
   return (
@@ -88,7 +97,7 @@ export default function AddRoomModal({ room, onClose, onSubmit }) {
           <div>
             <label className="text-xs font-bold text-slate-600">Kamera fotoğrafı / snapshot</label>
             <div className="mt-2 flex gap-2">
-              <input value={values.imageUrl.startsWith('blob:') ? 'Seçilen kamera karesi' : values.imageUrl} onChange={(event) => update('imageUrl', event.target.value)} placeholder="https://..." className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-ink outline-none focus:border-brand focus:ring-2 focus:ring-blue-100" />
+              <input value={values.imageUrl.startsWith('data:') ? 'Seçilen kamera karesi' : values.imageUrl} onChange={(event) => update('imageUrl', event.target.value)} placeholder="https://..." className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-ink outline-none focus:border-brand focus:ring-2 focus:ring-blue-100" />
               <label className="flex cursor-pointer items-center justify-center rounded-xl border border-slate-200 px-3 text-slate-500 transition hover:border-brand hover:text-brand"><FileImage size={18} /><input type="file" accept="image/*" onChange={handleFileChange} className="hidden" /></label>
             </div>
           </div>
@@ -110,7 +119,7 @@ function Field({ label, value, onChange, placeholder }) {
 }
 
 function AnalysisResult({ result }) {
-  return <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-4"><div className="mb-3 flex items-center gap-2 text-sm font-extrabold text-emerald-700"><CheckCircle2 size={17} /> AI analizi tamamlandı</div><div className="grid grid-cols-3 gap-2 text-center"><Metric label="Durum" value={result.status} /><Metric label="Dağınıklık" value={`%${result.clutterScore}`} /><Metric label="Güven" value={`%${result.aiConfidence}`} /></div><p className="mt-3 text-xs font-bold text-slate-500">Otomatik öncelik: <span className="text-rose-600">{result.priority}</span></p></div>
+  return <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-4"><div className="mb-3 flex items-center gap-2 text-sm font-extrabold text-emerald-700"><CheckCircle2 size={17} /> AI analizi tamamlandı{result.isSimulated && <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">Demo analiz (simülasyon)</span>}</div><div className="grid grid-cols-3 gap-2 text-center"><Metric label="Durum" value={result.status} /><Metric label="Dağınıklık" value={`%${result.clutterScore}`} /><Metric label="Güven" value={`%${result.aiConfidence}`} /></div><p className="mt-3 text-xs font-bold text-slate-500">Otomatik öncelik: <span className="text-rose-600">{result.priority}</span></p></div>
 }
 
 function Metric({ label, value }) {
@@ -119,4 +128,32 @@ function Metric({ label, value }) {
 
 function getAnalysis(room) {
   return { status: room.status, clutterScore: room.clutterScore, aiConfidence: room.aiConfidence || (room.status === 'Messy' ? 98 : 96), priority: room.priority, actionList: room.actionList || [] }
+}
+
+function randomScore(min, max) {
+  return Math.round((min + Math.random() * (max - min)) * 10) / 10
+}
+
+function resizeImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = reject
+    reader.onload = () => {
+      const image = new Image()
+      image.onerror = reject
+      image.onload = () => {
+        const scale = Math.min(1, MAX_IMAGE_WIDTH / image.width)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(image.width * scale)
+        canvas.height = Math.round(image.height * scale)
+        const context = canvas.getContext('2d')
+        context.fillStyle = '#ffffff'
+        context.fillRect(0, 0, canvas.width, canvas.height)
+        context.drawImage(image, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.8))
+      }
+      image.src = reader.result
+    }
+    reader.readAsDataURL(file)
+  })
 }

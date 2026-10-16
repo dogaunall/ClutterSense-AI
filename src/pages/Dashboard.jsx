@@ -5,7 +5,7 @@ import StatsHeader from '../components/StatsHeader'
 import FilterBar from '../components/FilterBar'
 import RoomCard from '../components/RoomCard'
 import AddRoomModal from '../components/AddRoomModal'
-import { CLEAN_ROOM_IMAGE, createRoom, ROOM_STATUS } from '../interfaces/roomModel'
+import { createRoom, ROOM_STATUS } from '../interfaces/roomModel'
 import { readRooms, writeRooms } from '../utils/storage'
 
 export default function Dashboard() {
@@ -21,13 +21,15 @@ export default function Dashboard() {
     const priorityOrder = { Kritik: 0, Yüksek: 1, Orta: 2, Düşük: 3 }
     return rooms.filter((room) => {
       const matchesStatus = filter === ROOM_STATUS.ALL || room.status === filter
-      return matchesStatus && room.name.toLocaleLowerCase('tr-TR').includes(search.toLocaleLowerCase('tr-TR'))
+      const query = search.toLocaleLowerCase('tr-TR')
+      const matchesSearch = [room.name, room.cameraName, room.area].some((field) => (field || '').toLocaleLowerCase('tr-TR').includes(query))
+      return matchesStatus && matchesSearch
     }).sort((a, b) => sort === 'score' ? b.clutterScore - a.clutterScore : sort === 'name' ? a.name.localeCompare(b.name, 'tr') : priorityOrder[a.priority] - priorityOrder[b.priority])
   }, [rooms, filter, search, sort])
 
   const addRoom = (values) => { setRooms((current) => [createRoom(values), ...current]); setModal(null) }
   const editRoom = (values) => { setRooms((current) => current.map((room) => room.id === values.id ? { ...room, ...values } : room)); setModal(null) }
-  const toggleStatus = (id) => setRooms((current) => current.map((room) => room.id === id ? { ...room, status: 'Clean', clutterScore: 3.5, aiConfidence: 96.5, priority: 'Düşük', imageUrl: CLEAN_ROOM_IMAGE, lastChecked: new Date().toISOString().slice(0, 16).replace('T', ' '), detectionTime: new Date().toLocaleTimeString('tr-TR'), actionList: ['1. Mevcut düzeni koruyun.', '2. Odayı düzenli aralıklarla yeniden tarayın.'] } : room))
+  const toggleStatus = (id) => setRooms((current) => current.map((room) => room.id === id ? { ...room, status: 'Clean', clutterScore: 3.5, aiConfidence: 96.5, priority: 'Düşük', lastChecked: new Date().toISOString().slice(0, 16).replace('T', ' '), detectionTime: new Date().toLocaleTimeString('tr-TR'), actionList: ['1. Mevcut düzeni koruyun.', '2. Odayı düzenli aralıklarla yeniden tarayın.'] } : room))
   const deleteRoom = (id) => { if (window.confirm('Bu odayı silmek istediğinize emin misiniz?')) setRooms((current) => current.filter((room) => room.id !== id)) }
 
   return (

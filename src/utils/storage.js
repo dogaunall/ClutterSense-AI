@@ -5,8 +5,12 @@ const ROOMS_KEY = 'cluttersense-rooms'
 export const readRooms = () => {
   try {
     const storedRooms = window.localStorage.getItem(ROOMS_KEY)
-    const parsedRooms = storedRooms ? JSON.parse(storedRooms) : null
-    if (!Array.isArray(parsedRooms) || parsedRooms.length === 0 || parsedRooms.some((room) => !room.cameraName || !room.actionList)) {
+    if (storedRooms === null) {
+      window.localStorage.setItem(ROOMS_KEY, JSON.stringify(INITIAL_ROOMS))
+      return INITIAL_ROOMS
+    }
+    const parsedRooms = JSON.parse(storedRooms)
+    if (!Array.isArray(parsedRooms) || parsedRooms.some((room) => !room.cameraName || !room.actionList)) {
       window.localStorage.setItem(ROOMS_KEY, JSON.stringify(INITIAL_ROOMS))
       return INITIAL_ROOMS
     }

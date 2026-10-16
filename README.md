@@ -1,23 +1,62 @@
 # ClutterSense AI
 
-ClutterSense AI, ev içi kamera görüntülerini MobileNetV2 analiz akışını simüle ederek oda düzeni, dağınıklık skoru ve temizlik önceliğine dönüştüren React dashboard uygulamasıdır.
+ClutterSense AI, ev kameralarından gelen görüntülerle odaların düzenini takip eden bir kontrol panelidir. Her oda için dağınıklık durumu (Clean / Messy), dağınıklık skoru, model güveni, temizlik önceliği ve öneri listesi gösterilir.
 
-## Özellikler
+Oda görüntülerini sınıflandıran model, ayrı bir derin öğrenme projesinde **MobileNetV2** ile eğitildi. Bu arayüzde model çalıştırılmıyor; analiz adımı simüle ediliyor:
 
-- React + Vite ile modern frontend kurulumu
-- Tailwind CSS ile responsive dashboard arayüzü
-- Lucide React ikonları
-- LocalStorage ile oda verisi kalıcılığı
-- Boş LocalStorage için otomatik başlangıç verisi
-- Clean / Messy durum filtreleri ve oda arama
-- Oda ve kamera CRUD işlemleri
-- Kamera URL'i veya dosya yükleme
-- Hazır kamera karesi seçenekleri
-- MobileNetV2 analiz yükleme simülasyonu
-- AI güveni, dağınıklık skoru ve öncelik hesabı
-- Karar destek aksiyonları ve yeniden tarama akışı
-- Görsel yükleme fallback'i
-- Netlify deployment yapılandırması
+- Hazır kamera karelerinden biri seçilirse, o kareye ait beklenen sonuç üretilir (dağınık odalar için skor 80–95, temiz odalar için 5–25).
+- Kullanıcı kendi URL'ini veya dosyasını yüklerse skor 0–100 arasında rastgele belirlenir, 50 ve üzeri "Messy" sayılır ve sonuç kutusunda "Demo analiz (simülasyon)" etiketi gösterilir.
+- Model güveni skordan türetilir: `max(skor, 100 - skor)`.
+
+**Canlı demo:** https://clutterai.netlify.app/
+
+## Kullanılan teknolojiler
+
+- React 18
+- Vite
+- Tailwind CSS
+- lucide-react (ikonlar)
+- LocalStorage (veri kalıcılığı)
+- Netlify (yayın)
+
+## CRUD işlemleri
+
+| İşlem | Arayüzde nerede |
+| --- | --- |
+| **Ekle (Create)** | Üst menüdeki **"+ Yeni Oda Ekle"** butonu. Açılan pencerede oda bilgileri girilir, kamera karesi seçilir veya yüklenir, analiz başlatılır ve kaydedilir. |
+| **Listele (Read)** | Ana sayfadaki oda kartları. Kartlar durum filtresiyle (Tümü / Dağınık / Temiz), aramayla (oda adı, kamera adı ve bölge) ve sıralamayla (öncelik, skor, ad) daraltılabilir. |
+| **Güncelle (Update)** | Karttaki **kalem ikonu** odayı düzenleme penceresini açar. **"Toparlandı"** butonu odayı temiz olarak işaretler; skor, öncelik, kontrol zamanı ve öneri listesi güncellenir. |
+| **Sil (Delete)** | Karttaki **çöp kutusu ikonu**. Onay alındıktan sonra oda silinir. |
+
+Veriler tarayıcının LocalStorage'ında tutulur. Örnek odalar yalnızca ilk açılışta yüklenir; tüm odalar silinirse liste boş kalır. Yüklenen görseller en fazla 800 px genişliğe küçültülüp base64 (JPEG) olarak kaydedilir, bu yüzden sayfa yenilendiğinde kaybolmaz.
+
+## Proje yapısı
+
+```text
+ClutterSense-AI/
+├── docs/                     # README ekran görüntüleri
+├── src/
+│   ├── components/
+│   │   ├── AddRoomModal.jsx  # Oda ekleme / düzenleme penceresi ve analiz simülasyonu
+│   │   ├── FilterBar.jsx     # Durum filtresi, arama ve sıralama
+│   │   ├── Navbar.jsx        # Üst menü ve "+ Yeni Oda Ekle" butonu
+│   │   ├── RoomCard.jsx      # Oda kartı (düzenle, toparlandı, sil)
+│   │   └── StatsHeader.jsx   # Özet istatistik kartları
+│   ├── interfaces/
+│   │   └── roomModel.js      # Oda modeli, örnek veriler, öncelik hesabı
+│   ├── pages/
+│   │   └── Dashboard.jsx     # Ana sayfa ve CRUD işlemleri
+│   ├── utils/
+│   │   └── storage.js        # LocalStorage okuma / yazma
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css
+├── index.html
+├── netlify.toml
+├── package.json
+├── tailwind.config.js
+└── vite.config.js
+```
 
 ## Kurulum
 
@@ -30,42 +69,15 @@ Production build:
 
 ```bash
 npm run build
+npm run preview
 ```
 
-## Proje yapısı
+## Ekran Görüntüleri
 
-```text
-src/
-├── interfaces/
-│   └── roomModel.js
-├── components/
-│   ├── AddRoomModal.jsx
-│   ├── EditRoomModal.jsx
-│   ├── FilterBar.jsx
-│   ├── Navbar.jsx
-│   ├── RoomCard.jsx
-│   └── StatsHeader.jsx
-├── pages/
-│   └── Dashboard.jsx
-├── utils/
-│   └── storage.js
-├── App.jsx
-├── main.jsx
-└── index.css
-```
+### Kontrol paneli
 
-## Eğitim yönergesi karşılığı
+![Kontrol paneli](docs/screenshot-dashboard.png)
 
-- HTML temelleri: `index.html` ve JSX bileşenleri
-- CSS temelleri: Tailwind CSS ve responsive utility sınıfları
-- JavaScript temelleri: state, filtreleme, form validasyonu ve LocalStorage
-- React temelleri: component yapısı, props, hooks ve CRUD akışları
-- GitHub: Repository kökü public GitHub repository'sine bağlanmaya hazırdır
-- Netlify: `netlify.toml` ile `npm run build` ve `dist` yayın ayarları tanımlıdır
+### Yeni oda ekleme
 
-## Teslim öncesi
-
-1. Uygulama ekran görüntüsünü README'ye ekleyin.
-2. Değişiklikleri GitHub public repository'sine push edin.
-3. Netlify'da repository'yi bağlayıp deploy edin.
-4. GitHub ve Netlify linklerini teslim formuna ekleyin.
+![Yeni oda ekleme](docs/screenshot-add-room.png)
